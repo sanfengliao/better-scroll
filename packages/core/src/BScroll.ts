@@ -7,7 +7,7 @@ import {
   isUndef,
   propertiesProxy,
   ApplyOrder,
-  EventEmitter
+  EventEmitter,
 } from '@better-scroll/shared-utils'
 import { bubbling } from './utils/bubbling'
 import { UnionToIntersection } from './utils/typesHelper'
@@ -51,7 +51,7 @@ export class BScrollConstructor<O = {}> extends EventEmitter {
   static use(ctor: PluginCtor) {
     const name = ctor.pluginName
     const installed = BScrollConstructor.plugins.some(
-      plugin => ctor === plugin.ctor
+      (plugin) => ctor === plugin.ctor
     )
     if (installed) return BScrollConstructor
     if (isUndef(name)) {
@@ -64,7 +64,7 @@ export class BScrollConstructor<O = {}> extends EventEmitter {
     BScrollConstructor.plugins.push({
       name,
       applyOrder: ctor.applyOrder,
-      ctor
+      ctor,
     })
     return BScrollConstructor
   }
@@ -82,9 +82,10 @@ export class BScrollConstructor<O = {}> extends EventEmitter {
       'scrollCancel',
       'touchEnd',
       'flick',
-      'destroy'
+      'destroy',
     ])
 
+    // 获取wrapper
     const wrapper = getElement(el)
 
     if (!wrapper) {
@@ -93,20 +94,25 @@ export class BScrollConstructor<O = {}> extends EventEmitter {
     }
 
     this.plugins = {}
+    // 合并options https://better-scroll.github.io/docs/zh-CN/guide/base-scroll-options.html
     this.options = new OptionsConstructor().merge(options).process()
 
+    // 判断是否能正确获取content，并设置this.content
     if (!this.setContent(wrapper).valid) {
       return
     }
 
+    // 注册事件
     this.hooks = new EventEmitter([
       'refresh',
       'enable',
       'disable',
       'destroy',
       'beforeInitialScrollTo',
-      'contentChanged'
+      'contentChanged',
     ])
+
+    // 初始化
     this.init(wrapper)
   }
 
@@ -129,7 +135,7 @@ export class BScrollConstructor<O = {}> extends EventEmitter {
     }
     return {
       valid,
-      contentChanged
+      contentChanged,
     }
   }
 
@@ -137,32 +143,44 @@ export class BScrollConstructor<O = {}> extends EventEmitter {
     this.wrapper = wrapper
 
     // mark wrapper to recognize bs instance by DOM attribute
+    // 设置wrapper(dom)的isBScrollContainer为true
     wrapper.isBScrollContainer = true
+    // 初始化scroller，核心scroller
     this.scroller = new Scroller(wrapper, this.content, this.options)
+    // 监听scroller.hooks的resize事件，也就是window.resize事件
     this.scroller.hooks.on(this.scroller.hooks.eventTypes.resize, () => {
       this.refresh()
     })
 
+    // 事件冒泡
     this.eventBubbling()
+
+    // 在滚动之前会让当前激活的元素（input、textarea）自动失去焦点。
     this.handleAutoBlur()
+    // 设置enalbe
     this.enable()
 
+    // 属性代理见this.xxx属性代理的this.scroller.xxx.xxx属性上
     this.proxy(propertiesConfig)
+    // 应用插件
     this.applyPlugins()
 
     // maybe boundary has changed, should refresh
+    // 刷新better-scroll
     this.refreshWithoutReset(this.content)
     const { startX, startY } = this.options
     const position = {
       x: startX,
-      y: startY
+      y: startY,
     }
     // maybe plugins want to control scroll position
+    // 出发hooksbeforeInitialScrollTo的beforeInitialScrollTo事件,供插件监听
     if (
       this.hooks.trigger(this.hooks.eventTypes.beforeInitialScrollTo, position)
     ) {
       return
     }
+    // 滚动到初始化的位置
     this.scroller.scrollTo(position.x, position.y)
   }
 
@@ -172,7 +190,7 @@ export class BScrollConstructor<O = {}> extends EventEmitter {
       .sort((a, b) => {
         const applyOrderMap = {
           [ApplyOrder.Pre]: -1,
-          [ApplyOrder.Post]: 1
+          [ApplyOrder.Post]: 1,
         }
         const aOrder = a.applyOrder ? applyOrderMap[a.applyOrder] : 0
         const bOrder = b.applyOrder ? applyOrderMap[b.applyOrder] : 0
@@ -203,6 +221,7 @@ export class BScrollConstructor<O = {}> extends EventEmitter {
   }
 
   private eventBubbling() {
+    // 事件冒泡,当this.scroller.hooks的中 beforeScrollStart, scrollStart, scroll, scrollEnd, scrollCancel, touchEnd事件触发时冒泡并触发 this 的beforeScrollStart, scrollStart, scroll, scrollEnd, scrollCancel, touchEnd
     bubbling(this.scroller.hooks, this, [
       this.eventTypes.beforeScrollStart,
       this.eventTypes.scrollStart,
@@ -210,7 +229,7 @@ export class BScrollConstructor<O = {}> extends EventEmitter {
       this.eventTypes.scrollEnd,
       this.eventTypes.scrollCancel,
       this.eventTypes.touchEnd,
-      this.eventTypes.flick
+      this.eventTypes.flick,
     ])
   }
 
